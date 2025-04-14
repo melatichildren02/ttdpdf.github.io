@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi PDF dengan Tanda Tangan Presisi</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        
+        #login-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        #login-form {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            width: 350px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+        }
+        
+        #login-form h2 {
+            margin-top: 0;
+            color: #333;
+            text-align: center;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        #login-button {
+            width: 100%;
+            padding: 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        #login-button:hover {
+            background-color: #45a049;
+        }
+        
+        #app-container {
+            display: none;
+            padding: 20px;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        
+        #header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+            flex-wrap: wrap;
+        }
+        
+        #user-info {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        
+        #user-info span {
+            margin-right: 15px;
+        }
+        
+        #logout-button {
+            padding: 6px 12px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        #pdf-container {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            position: relative;
+            display: inline-block;
+            background: white;
+            max-width: 100%;
+            overflow: auto;
+        }
+        
+        #pdf-viewer {
+            display: block;
+            border: 1px solid #ddd;
+            max-width: 100%;
+        }
+        
+        #signature-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        #signature-canvas {
+            pointer-events: auto;
+            background-color: transparent;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .toolbar {
+            margin-bottom: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        button {
+            padding: 8px 15px;
+            cursor: pointer;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+        
+        .signature-mode {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .active-signature {
+            background-color: #f44336;
+        }
+        
+        #save-options {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #eee;
+            display: none;
+            background: white;
+        }
+        
+        #loading-indicator {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 24px;
+        }
+        
+        @media (max-width: 768px) {
+            #login-form {
+                width: 90%;
+                padding: 20px;
+            }
+            
+            .toolbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            #header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            #user-info {
+                margin-top: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Panel Login -->
+    <div id="login-panel">
+        <div id="login-form">
+            <h2>Login Aplikasi PDF</h2>
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" placeholder="Masukkan username">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Masukkan password">
+            </div>
+            <button id="login-button">Login</button>
+        </div>
+    </div>
+    
+    <!-- Aplikasi Utama -->
+    <div id="app-container">
+        <div id="header">
+            <h1>Aplikasi PDF dengan Tanda Tangan Presisi</h1>
+            <div id="user-info">
+                <span id="logged-in-user"></span>
+                <button id="logout-button">Logout</button>
+            </div>
+        </div>
+        
+        <div class="toolbar">
+            <input type="file" id="pdf-input" accept=".pdf">
+            <button id="prev-page">Sebelumnya</button>
+            <button id="next-page">Berikutnya</button>
+            <span>Halaman: <span id="page-num">0</span>/<span id="page-count">0</span></span>
+            <button id="zoom-in">Zoom In</button>
+            <button id="zoom-out">Zoom Out</button>
+            <button id="toggle-signature" class="signature-mode">Mode Tanda Tangan</button>
+            <button id="clear-signature">Hapus Tanda Tangan</button>
+            <button id="show-save-options">Simpan Dokumen</button>
+        </div>
+
+        <div id="save-options">
+            <h3>Pilihan Simpan:</h3>
+            <button id="save-png">Simpan sebagai Gambar (PNG)</button>
+            <button id="save-pdf-highres">Simpan sebagai PDF (Resolusi Tinggi)</button>
+            <button id="save-pdf-maxres">Simpan sebagai PDF (Resolusi Maksimal)</button>
+            <button id="cancel-save">Batal</button>
+        </div>
+        
+        <div id="pdf-container">
+            <canvas id="pdf-viewer"></canvas>
+            <div id="signature-layer">
+                <canvas id="signature-canvas"></canvas>
+            </div>
+        </div>
+
+        <div id="loading-indicator">
+            <div>Membuat PDF resolusi tinggi, harap tunggu...</div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Inisialisasi library
+            const { jsPDF } = window.jspdf;
+            
+            // Konfigurasi PDF.js
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+            
+            // Data user
+            const validUsers = [
+                { username: 'admin', password: 'admin123', name: 'Administrator' },
+                { username: 'user1', password: 'user1123', name: 'User Satu' },
+                { username: 'user2', password: 'user2123', name: 'User Dua' }
+            ];
+            
+            // Variabel state aplikasi
+            let currentUser = null;
+            let pdfDoc = null,
+                pageNum = 1,
+                pageRendering = false,
+                pageNumPending = null,
+                scale = 1.0,
+                isSigning = false,
+                signatureCanvas, signatureCtx,
+                drawing = false;
+            
+            // Data tanda tangan
+            const signatureData = {
+                points: [],
+                isDrawing: false,
+                lineWidth: 2,
+                strokeStyle: '#000000',
+                viewportScale: 1
+            };
+            
+            // Referensi elemen DOM
+            const loginPanel = document.getElementById('login-panel');
+            const appContainer = document.getElementById('app-container');
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            const loginButton = document.getElementById('login-button');
+            const logoutButton = document.getElementById('logout-button');
+            const loggedInUserSpan = document.getElementById('logged-in-user');
+            const pdfCanvas = document.getElementById('pdf-viewer');
+            const pdfCtx = pdfCanvas.getContext('2d');
+            signatureCanvas = document.getElementById('signature-canvas');
+            signatureCtx = signatureCanvas.getContext('2d');
+            const saveOptions = document.getElementById('save-options');
+            const loadingIndicator = document.getElementById('loading-indicator');
+
+            // Fungsi untuk login
+            function login(username, password) {
+                const user = validUsers.find(u => u.username === username && u.password === password);
+                
+                if (user) {
+                    currentUser = user;
+                    loggedInUserSpan.textContent = `Selamat datang, ${user.name}`;
+                    loginPanel.style.display = 'none';
+                    appContainer.style.display = 'block';
+                    return true;
+                } else {
+                    alert('Username atau password salah');
+                    return false;
+                }
+            }
+            
+            // Fungsi untuk logout
+            function logout() {
+                currentUser = null;
+                usernameInput.value = '';
+                passwordInput.value = '';
+                loginPanel.style.display = 'flex';
+                appContainer.style.display = 'none';
+                
+                // Reset state aplikasi
+                pdfDoc = null;
+                pageNum = 1;
+                scale = 1.0;
+                signatureData.points = [];
+                if (pdfCanvas) {
+                    pdfCanvas.width = 0;
+                    pdfCanvas.height = 0;
+                }
+                if (signatureCanvas) {
+                    signatureCanvas.width = 0;
+                    signatureCanvas.height = 0;
+                }
+                document.getElementById('page-num').textContent = '0';
+                document.getElementById('page-count').textContent = '0';
+                if (saveOptions) saveOptions.style.display = 'none';
+            }
+            
+            // Event listener untuk login
+            loginButton.addEventListener('click', function() {
+                const username = usernameInput.value.trim();
+                const password = passwordInput.value;
+                
+                if (username && password) {
+                    login(username, password);
+                } else {
+                    alert('Harap isi username dan password');
+                }
+            });
+            
+            // Event listener untuk logout
+            logoutButton.addEventListener('click', logout);
+            
+            // Fungsi untuk merender ulang tanda tangan
+            function renderSignature() {
+                signatureCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+                
+                if (signatureData.points.length === 0) return;
+                
+                signatureCtx.save();
+                signatureCtx.beginPath();
+                signatureCtx.moveTo(signatureData.points[0].x, signatureData.points[0].y);
+                
+                for (let i = 1; i < signatureData.points.length; i++) {
+                    signatureCtx.lineTo(signatureData.points[i].x, signatureData.points[i].y);
+                }
+                
+                signatureCtx.strokeStyle = signatureData.strokeStyle;
+                signatureCtx.lineWidth = signatureData.lineWidth;
+                signatureCtx.lineCap = 'round';
+                signatureCtx.lineJoin = 'round';
+                signatureCtx.stroke();
+                signatureCtx.restore();
+            }
+            
+            // Fungsi untuk resize canvas
+            function resizeCanvas() {
+                if (!pdfCanvas || !signatureCanvas) return;
+                
+                const originalWidth = signatureCanvas.width || pdfCanvas.width;
+                const originalHeight = signatureCanvas.height || pdfCanvas.height;
+                
+                signatureCanvas.width = pdfCanvas.width;
+                signatureCanvas.height = pdfCanvas.height;
+                
+                // Skala titik-titik tanda tangan ke ukuran baru
+                if (originalWidth > 0 && originalHeight > 0) {
+                    const scaleX = signatureCanvas.width / originalWidth;
+                    const scaleY = signatureCanvas.height / originalHeight;
+                    
+                    signatureData.points.forEach(point => {
+                        point.x *= scaleX;
+                        point.y *= scaleY;
+                    });
+                }
+                
+                renderSignature();
+            }
+            
+            // Fungsi untuk merender halaman PDF
+            function renderPage(num) {
+                if (!pdfDoc) return;
+                
+                pageRendering = true;
+                
+                pdfDoc.getPage(num).then(function(page) {
+                    const viewport = page.getViewport({ scale: scale });
+                    signatureData.viewportScale = viewport.scale;
+                    
+                    pdfCanvas.height = viewport.height;
+                    pdfCanvas.width = viewport.width;
+                    signatureCanvas.height = viewport.height;
+                    signatureCanvas.width = viewport.width;
+                    
+                    const renderContext = {
+                        canvasContext: pdfCtx,
+                        viewport: viewport
+                    };
+                    
+                    const renderTask = page.render(renderContext);
+                    
+                    renderTask.promise.then(function() {
+                        pageRendering = false;
+                        if (pageNumPending !== null) {
+                            renderPage(pageNumPending);
+                            pageNumPending = null;
+                        }
+                        renderSignature();
+                    }).catch(function(error) {
+                        console.error('Error rendering page:', error);
+                        pageRendering = false;
+                    });
+                }).catch(function(error) {
+                    console.error('Error getting page:', error);
+                    pageRendering = false;
+                });
+                
+                document.getElementById('page-num').textContent = num;
+            }
+            
+            // Fungsi untuk mengantri render halaman
+            function queueRenderPage(num) {
+                if (pageRendering) {
+                    pageNumPending = num;
+                } else {
+                    renderPage(num);
+                }
+            }
+            
+            // Navigasi halaman sebelumnya
+            document.getElementById('prev-page').addEventListener('click', function() {
+                if (!currentUser) return logout();
+                if (pageNum <= 1) return;
+                pageNum--;
+                queueRenderPage(pageNum);
+            });
+            
+            // Navigasi halaman berikutnya
+            document.getElementById('next-page').addEventListener('click', function() {
+                if (!currentUser) return logout();
+                if (pageNum >= pdfDoc.numPages) return;
+                pageNum++;
+                queueRenderPage(pageNum);
+            });
+            
+            // Zoom in
+            document.getElementById('zoom-in').addEventListener('click', function() {
+                if (!currentUser) return logout();
+                scale += 0.25;
+                queueRenderPage(pageNum);
+            });
+            
+            // Zoom out
+            document.getElementById('zoom-out').addEventListener('click', function() {
+                if (!currentUser) return logout();
+                if (scale <= 0.5) return;
+                scale -= 0.25;
+                queueRenderPage(pageNum);
+            });
+            
+            // Toggle mode tanda tangan
+            document.getElementById('toggle-signature').addEventListener('click', function() {
+                if (!currentUser) return logout();
+                isSigning = !isSigning;
+                this.textContent = isSigning ? 'Mode Baca' : 'Mode Tanda Tangan';
+                this.classList.toggle('active-signature');
+            });
+            
+            // Hapus tanda tangan
+            document.getElementById('clear-signature').addEventListener('click', function() {
+                if (!currentUser) return logout();
+                signatureData.points = [];
+                renderSignature();
+            });
+            
+            // Fungsi untuk mendapatkan posisi pointer relatif terhadap canvas
+            function getPointerPosition(event) {
+                const rect = signatureCanvas.getBoundingClientRect();
+                let clientX, clientY;
+                
+                if (event.touches) {
+                    clientX = event.touches[0].clientX;
+                    clientY = event.touches[0].clientY;
+                } else {
+                    clientX = event.clientX;
+                    clientY = event.clientY;
+                }
+                
+                // Hitung posisi relatif terhadap canvas dengan skala viewport
+                const x = (clientX - rect.left) * (signatureCanvas.width / rect.width);
+                const y = (clientY - rect.top) * (signatureCanvas.height / rect.height);
+                
+                return {
+                    x: Math.max(0, Math.min(x, signatureCanvas.width)),
+                    y: Math.max(0, Math.min(y, signatureCanvas.height))
+                };
+            }
+            
+            // Fungsi untuk memulai tanda tangan
+            function startSignature(e) {
+                if (!currentUser || !isSigning) return;
+                
+                e.preventDefault();
+                const pos = getPointerPosition(e);
+                
+                signatureData.isDrawing = true;
+                signatureData.points.push({x: pos.x, y: pos.y});
+                
+                signatureCtx.beginPath();
+                signatureCtx.moveTo(pos.x, pos.y);
+                signatureCtx.strokeStyle = signatureData.strokeStyle;
+                signatureCtx.lineWidth = signatureData.lineWidth;
+                signatureCtx.lineCap = 'round';
+                signatureCtx.lineJoin = 'round';
+            }
+            
+            // Fungsi untuk menggambar tanda tangan
+            function drawSignature(e) {
+                if (!signatureData.isDrawing) return;
+                
+                e.preventDefault();
+                const pos = getPointerPosition(e);
+                
+                signatureData.points.push({x: pos.x, y: pos.y});
+                
+                signatureCtx.lineTo(pos.x, pos.y);
+                signatureCtx.stroke();
+            }
+            
+            // Fungsi untuk mengakhiri tanda tangan
+            function endSignature() {
+                signatureData.isDrawing = false;
+            }
+            
+            // Event listeners untuk tanda tangan (mouse)
+            signatureCanvas.addEventListener('mousedown', startSignature);
+            signatureCanvas.addEventListener('mousemove', drawSignature);
+            signatureCanvas.addEventListener('mouseup', endSignature);
+            signatureCanvas.addEventListener('mouseout', endSignature);
+            
+            // Event listeners untuk tanda tangan (touch)
+            signatureCanvas.addEventListener('touchstart', startSignature, { passive: false });
+            signatureCanvas.addEventListener('touchmove', drawSignature, { passive: false });
+            signatureCanvas.addEventListener('touchend', endSignature, { passive: false });
+            
+            // Load PDF
+            document.getElementById('pdf-input').addEventListener('change', function(e) {
+                if (!currentUser) return logout();
+                
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                if (file.type !== 'application/pdf') {
+                    alert('Harap pilih file PDF');
+                    return;
+                }
+                
+                const fileReader = new FileReader();
+                
+                fileReader.onload = function() {
+                    const typedArray = new Uint8Array(this.result);
+                    
+                    // Loading PDF document
+                    loadingIndicator.style.display = 'flex';
+                    
+                    pdfjsLib.getDocument(typedArray).promise.then(function(pdf) {
+                        pdfDoc = pdf;
+                        document.getElementById('page-count').textContent = pdf.numPages;
+                        pageNum = 1;
+                        renderPage(pageNum);
+                        loadingIndicator.style.display = 'none';
+                    }).catch(function(error) {
+                        console.error('Error loading PDF:', error);
+                        alert('Gagal memuat PDF: ' + error.message);
+                        loadingIndicator.style.display = 'none';
+                    });
+                };
+                
+                fileReader.onerror = function() {
+                    alert('Gagal membaca file');
+                    loadingIndicator.style.display = 'none';
+                };
+                
+                fileReader.readAsArrayBuffer(file);
+            });
+            
+            // Tampilkan opsi simpan
+            document.getElementById('show-save-options').addEventListener('click', function() {
+                if (!currentUser) return logout();
+                if (!pdfDoc) {
+                    alert('Tidak ada dokumen yang dimuat');
+                    return;
+                }
+                saveOptions.style.display = 'block';
+            });
+            
+            // Batal simpan
+            document.getElementById('cancel-save').addEventListener('click', function() {
+                saveOptions.style.display = 'none';
+            });
+            
+            // Simpan sebagai PNG
+            document.getElementById('save-png').addEventListener('click', function() {
+                if (!currentUser) return logout();
+                if (!pdfDoc) {
+                    alert('Tidak ada dokumen yang dimuat');
+                    return;
+                }
+                
+                const combinedCanvas = document.createElement('canvas');
+                combinedCanvas.width = pdfCanvas.width;
+                combinedCanvas.height = pdfCanvas.height;
+                const combinedCtx = combinedCanvas.getContext('2d');
+                
+                combinedCtx.drawImage(pdfCanvas, 0, 0);
+                combinedCtx.drawImage(signatureCanvas, 0, 0);
+                
+                const image = combinedCanvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.href = image;
+                link.download = `document-${currentUser.username}-${new Date().toISOString().slice(0,10)}.png`;
+                link.click();
+                
+                saveOptions.style.display = 'none';
+            });
+            
+            // Fungsi untuk membuat canvas resolusi tinggi
+            async function createHighResCanvas(scaleFactor) {
+                return new Promise((resolve, reject) => {
+                    const originalWidth = pdfCanvas.width;
+                    const originalHeight = pdfCanvas.height;
+                    
+                    const highResCanvas = document.createElement('canvas');
+                    highResCanvas.width = originalWidth * scaleFactor;
+                    highResCanvas.height = originalHeight * scaleFactor;
+                    const highResCtx = highResCanvas.getContext('2d');
+                    
+                    // Render PDF dengan resolusi tinggi
+                    pdfDoc.getPage(pageNum).then(function(page) {
+                        const viewport = page.getViewport({ scale: scale * scaleFactor });
+                        
+                        // Render PDF ke canvas high-res
+                        page.render({
+                            canvasContext: highResCtx,
+                            viewport: viewport
+                        }).promise.then(function() {
+                            resolve(highResCanvas);
+                        }).catch(reject);
+                    }).catch(reject);
+                });
+            }
+            
+            // Fungsi untuk membuat canvas tanda tangan resolusi tinggi
+            function createHighResSignature(scaleFactor) {
+                const sigCanvas = document.createElement('canvas');
+                sigCanvas.width = pdfCanvas.width * scaleFactor;
+                sigCanvas.height = pdfCanvas.height * scaleFactor;
+                const sigCtx = sigCanvas.getContext('2d');
+                
+                if (signatureData.points.length > 0) {
+                    sigCtx.beginPath();
+                    const firstPoint = signatureData.points[0];
+                    sigCtx.moveTo(
+                        firstPoint.x * scaleFactor, 
+                        firstPoint.y * scaleFactor
+                    );
+                    
+                    for (let i = 1; i < signatureData.points.length; i++) {
+                        const point = signatureData.points[i];
+                        sigCtx.lineTo(
+                            point.x * scaleFactor, 
+                            point.y * scaleFactor
+                        );
+                    }
+                    
+                    sigCtx.strokeStyle = signatureData.strokeStyle;
+                    sigCtx.lineWidth = signatureData.lineWidth * scaleFactor;
+                    sigCtx.lineCap = 'round';
+                    sigCtx.lineJoin = 'round';
+                    sigCtx.stroke();
+                }
+                
+                return sigCanvas;
+            }
+            
+            // Simpan sebagai PDF resolusi tinggi (4x)
+            document.getElementById('save-pdf-highres').addEventListener('click', async function() {
+                if (!currentUser) return logout();
+                if (!pdfDoc) {
+                    alert('Tidak ada dokumen yang dimuat');
+                    return;
+                }
+                
+                loadingIndicator.style.display = 'flex';
+                saveOptions.style.display = 'none';
+                
+                try {
+                    const scaleFactor = 4;
+                    
+                    // Buat canvas resolusi tinggi
+                    const highResCanvas = await createHighResCanvas(scaleFactor);
+                    const highResCtx = highResCanvas.getContext('2d');
+                    
+                    // Tambahkan tanda tangan resolusi tinggi
+                    const sigCanvas = createHighResSignature(scaleFactor);
+                    highResCtx.drawImage(sigCanvas, 0, 0);
+                    
+                    // Konversi ke PDF
+                    const imgData = highResCanvas.toDataURL('image/jpeg', 0.95);
+                    const pdfWidth = (pdfCanvas.width / 96) * 25.4;
+                    const pdfHeight = (pdfCanvas.height / 96) * 25.4;
+                    
+                    const pdf = new jsPDF({
+                        orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
+                        unit: 'mm',
+                        format: [pdfWidth, pdfHeight]
+                    });
+                    
+                    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+                    pdf.setProperties({
+                        title: `Dokumen dengan Tanda Tangan - ${currentUser.name}`,
+                        author: currentUser.name,
+                        creator: 'Aplikasi PDF dengan Tanda Tangan'
+                    });
+                    
+                    pdf.save(`document-${currentUser.username}-${new Date().toISOString().slice(0,10)}.pdf`);
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Gagal menyimpan: ' + error.message);
+                } finally {
+                    loadingIndicator.style.display = 'none';
+                }
+            });
+            
+            // Simpan sebagai PDF resolusi maksimal (8x)
+            document.getElementById('save-pdf-maxres').addEventListener('click', async function() {
+                if (!currentUser) return logout();
+                if (!pdfDoc) {
+                    alert('Tidak ada dokumen yang dimuat');
+                    return;
+                }
+                
+                loadingIndicator.style.display = 'flex';
+                saveOptions.style.display = 'none';
+                
+                try {
+                    const scaleFactor = 8;
+                    
+                    // Buat canvas resolusi tinggi
+                    const highResCanvas = await createHighResCanvas(scaleFactor);
+                    const highResCtx = highResCanvas.getContext('2d');
+                    
+                    // Tambahkan tanda tangan resolusi tinggi
+                    const sigCanvas = createHighResSignature(scaleFactor);
+                    highResCtx.drawImage(sigCanvas, 0, 0);
+                    
+                    // Konversi ke PDF
+                    const imgData = highResCanvas.toDataURL('image/jpeg', 1.0);
+                    const pdfWidth = (pdfCanvas.width / 96) * 25.4;
+                    const pdfHeight = (pdfCanvas.height / 96) * 25.4;
+                    
+                    const pdf = new jsPDF({
+                        orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
+                        unit: 'mm',
+                        format: [pdfWidth, pdfHeight]
+                    });
+                    
+                    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+                    pdf.setProperties({
+                        title: `Dokumen dengan Tanda Tangan (Resolusi Tinggi) - ${currentUser.name}`,
+                        author: currentUser.name,
+                        creator: 'Aplikasi PDF dengan Tanda Tangan'
+                    });
+                    
+                    pdf.save(`document-highres-${currentUser.username}-${new Date().toISOString().slice(0,10)}.pdf`);
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Gagal menyimpan: ' + error.message);
+                } finally {
+                    loadingIndicator.style.display = 'none';
+                }
+            });
+            
+            // Inisialisasi aplikasi
+            logout();
+        });
+    </script>
+</body>
+</html>
